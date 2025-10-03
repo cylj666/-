@@ -1,8 +1,7 @@
-import { CurvatureMode, Waveform } from './visualizers/v2D/types';
+export type CurvatureMode = 'standard' | 'golden' | 'inverse-golden';
 
-export type { CurvatureMode, Waveform };
-
-export type InteractionMode = 'pan' | 'brush' | 'scan';
+// A new type to define the fundamental shape of the partitions.
+export type Waveform = 'spiral' | 'sine';
 
 export type Dot = {
   id: string;
@@ -36,6 +35,8 @@ export interface Preset {
     brushColor?: string;
     globalRotationSpeed?: number;
     globalRotationDirection?: 'clockwise' | 'counter-clockwise';
+    masterRotationSpeed?: number;
+    masterRotationDirection?: 'clockwise' | 'counter-clockwise';
     panOffset?: { x: number; y: number; };
     canvasBackgroundColor?: 'black' | 'white';
     // Waveform settings

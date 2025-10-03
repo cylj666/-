@@ -1,5 +1,5 @@
 {
-  "name": "Interactive Color Wheel",
-  "description": "A customizable circular color wheel application where users can adjust segment counts, apply colors, and modify the curvature of the dividing lines between segments, featuring standard, golden ratio, and custom curve modes.",
+  "name": "2D Plane, Frequency, Curvature Visualizer",
+  "description": "An application to visualize and dynamically tune wave-like patterns on a 2D plane by adjusting frequency (segments) and curvature.",
   "requestFramePermissions": []
 }

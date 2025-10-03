@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Import CurvatureMode from ../types where it is now defined, instead of from ../App
-import type { Preset, Waveform, CurvatureMode } from '../types';
+import type { Preset, Waveform, CurvatureMode, InteractionMode } from '../../../types';
 import { PARTITION_OPTIONS, COLOR_PALETTE, GOLDEN_SPIRAL_FACTOR } from '../constants';
-import { useTranslation } from '../i18n';
+import { useTranslation } from '../../../i18n';
 
 interface ControlsProps {
   segments: number;
@@ -74,12 +73,6 @@ interface ControlsProps {
   setGlobalRotationDirection: (d: 'clockwise' | 'counter-clockwise') => void;
   onTogglePlayPauseGlobal: () => void;
   
-  masterRotationSpeed: number;
-  setMasterRotationSpeed: (s: number) => void;
-  masterRotationDirection: 'clockwise' | 'counter-clockwise';
-  setMasterRotationDirection: (d: 'clockwise' | 'counter-clockwise') => void;
-  onTogglePlayPauseMaster: () => void;
-
   presets: Preset[];
   onSavePreset: (name: string) => void;
   onApplyPreset: (id: string) => void;
@@ -90,8 +83,8 @@ interface ControlsProps {
   zoom: number;
   setZoom: (z: number) => void;
   
-  isBrushMode: boolean;
-  setIsBrushMode: (b: boolean) => void;
+  interactionMode: InteractionMode;
+  setInteractionMode: (m: InteractionMode) => void;
   onClearDots: () => void;
   brushColor: string;
   setBrushColor: (c: string) => void;
@@ -132,9 +125,8 @@ export const Controls: React.FC<ControlsProps> = (props) => {
     disc1BaseRotation, setDisc1BaseRotation, disc2BaseRotation, setDisc2BaseRotation, isRotationLocked, setIsRotationLocked,
     disc2Coverage, setDisc2Coverage,
     globalRotationSpeed, setGlobalRotationSpeed, globalRotationDirection, setGlobalRotationDirection, onTogglePlayPauseGlobal,
-    masterRotationSpeed, setMasterRotationSpeed, masterRotationDirection, setMasterRotationDirection, onTogglePlayPauseMaster,
     presets, onSavePreset, onApplyPreset, onDeletePreset, isFullscreen, onToggleFullscreen, zoom, setZoom,
-    isBrushMode, setIsBrushMode, onClearDots, brushColor, setBrushColor, canvasBackgroundColor, setCanvasBackgroundColor,
+    interactionMode, setInteractionMode, onClearDots, brushColor, setBrushColor, canvasBackgroundColor, setCanvasBackgroundColor,
   } = props;
   
   const { t, language, setLanguage } = useTranslation();
@@ -144,7 +136,6 @@ export const Controls: React.FC<ControlsProps> = (props) => {
   const [speedInputText1, setSpeedInputText1] = useState<string>(String(disc1RotationSpeed));
   const [speedInputText2, setSpeedInputText2] = useState<string>(String(disc2RotationSpeed));
   const [globalSpeedInputText, setGlobalSpeedInputText] = useState<string>(String(globalRotationSpeed));
-  const [masterSpeedInputText, setMasterSpeedInputText] = useState<string>(String(masterRotationSpeed));
   const [disc1CurvatureInputText, setDisc1CurvatureInputText] = useState<string>(String(disc1CustomCurvature));
   const [disc2CurvatureInputText, setDisc2CurvatureInputText] = useState<string>(String(disc2CustomCurvature));
   const [disc1BaseRotationText, setDisc1BaseRotationText] = useState<string>(String(disc1BaseRotation));
@@ -156,7 +147,6 @@ export const Controls: React.FC<ControlsProps> = (props) => {
   useEffect(() => { setSpeedInputText1(String(disc1RotationSpeed)); }, [disc1RotationSpeed]);
   useEffect(() => { setSpeedInputText2(String(disc2RotationSpeed)); }, [disc2RotationSpeed]);
   useEffect(() => { setGlobalSpeedInputText(String(globalRotationSpeed)); }, [globalRotationSpeed]);
-  useEffect(() => { setMasterSpeedInputText(String(masterRotationSpeed)); }, [masterRotationSpeed]);
   useEffect(() => { setDisc1CurvatureInputText(String(disc1CustomCurvature)); }, [disc1CustomCurvature]);
   useEffect(() => { setDisc2CurvatureInputText(String(disc2CustomCurvature)); }, [disc2CustomCurvature]);
   useEffect(() => { setDisc1BaseRotationText(String(disc1BaseRotation)); }, [disc1BaseRotation]);
@@ -230,6 +220,42 @@ export const Controls: React.FC<ControlsProps> = (props) => {
           {language === 'en' ? t('switchToChinese') : t('switchToEnglish')}
         </button>
       </div>
+
+      <ControlSection title={t('interactionMode')}>
+        <div className="flex flex-col space-y-4">
+          <div className="flex space-x-2">
+            <OptionButton onClick={() => setInteractionMode('pan')} isActive={interactionMode === 'pan'}>
+              {t('panAndZoom')}
+            </OptionButton>
+            <OptionButton onClick={() => setInteractionMode('brush')} isActive={interactionMode === 'brush'}>
+              {t('brush')}
+            </OptionButton>
+             <OptionButton onClick={() => setInteractionMode('scan')} isActive={interactionMode === 'scan'}>
+              {t('scanner')}
+            </OptionButton>
+          </div>
+          {interactionMode === 'brush' && (
+            <div className="pt-2 space-y-4">
+               <OptionButton onClick={onClearDots} isActive={false}>
+                {t('clearAllDots')}
+              </OptionButton>
+              <div className="flex items-center space-x-3">
+                <label htmlFor="brush-color-picker" className="text-sm font-medium text-slate-300">
+                  {t('brushColor')}
+                </label>
+                <input
+                  id="brush-color-picker"
+                  type="color"
+                  value={brushColor}
+                  onChange={(e) => setBrushColor(e.target.value)}
+                  className="w-10 h-10 p-1 bg-slate-700 border border-slate-600 rounded-md cursor-pointer"
+                  title={t('brushColor')}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </ControlSection>
 
       <ControlSection title={t('innerDiscCurvature')} disabled={disc1Waveform !== 'spiral'}>
         <div className="text-right text-xs text-slate-500 mb-2">
@@ -393,7 +419,7 @@ export const Controls: React.FC<ControlsProps> = (props) => {
                 </div>
             </div>
              <div>
-              <label className="text-xs text-slate-400">{t('interferenceDepth')}</label>
+              <label className="text-xs text-slate-400">{t('outerDiscInfluenceDepth')}</label>
               <div className="flex items-center space-x-4 mt-1">
                   <input
                       type="range"
@@ -458,42 +484,6 @@ export const Controls: React.FC<ControlsProps> = (props) => {
         </div>
       </ControlSection>
 
-      <ControlSection title={t('frameRotation')}>
-        <div className="space-y-4">
-            <div className="flex space-x-2">
-                <OptionButton onClick={() => setMasterRotationDirection('clockwise')} isActive={masterRotationDirection === 'clockwise'}>{t('clockwise')}</OptionButton>
-                <OptionButton onClick={() => setMasterRotationDirection('counter-clockwise')} isActive={masterRotationDirection === 'counter-clockwise'}>{t('counterClockwise')}</OptionButton>
-                <OptionButton onClick={onTogglePlayPauseMaster} isActive={false}>
-                {masterRotationSpeed > 0 ? t('pause') : t('play')}
-                </OptionButton>
-            </div>
-            <div className="flex items-center space-x-4">
-                <input
-                type="range"
-                min="0"
-                max="121"
-                step="0.01"
-                value={masterRotationSpeed}
-                onChange={(e) => setMasterRotationSpeed(Number(e.target.value))}
-                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                />
-                <div className="flex items-baseline space-x-1">
-                    <input
-                        type="number"
-                        min="0"
-                        max="121"
-                        step="0.01"
-                        value={masterSpeedInputText}
-                        onChange={(e) => { setMasterSpeedInputText(e.target.value); createNumericInputHandler(setMasterRotationSpeed, 0, 121)(e); }}
-                        onBlur={createNumericInputBlurHandler(masterRotationSpeed, setMasterRotationSpeed, setMasterSpeedInputText, 0, 121)}
-                        className="w-16 p-1 text-center bg-slate-700 rounded-md"
-                    />
-                    <span className="text-sm text-slate-400">{t('rps')}</span>
-                </div>
-            </div>
-        </div>
-      </ControlSection>
-      
       <ControlSection title={t('colors')}>
         <div className="space-y-3">
           {colors.map((color, index) => (
@@ -620,34 +610,6 @@ export const Controls: React.FC<ControlsProps> = (props) => {
                 <OptionButton onClick={() => setCanvasBackgroundColor('white')} isActive={canvasBackgroundColor === 'white'}>
                   {t('white')}
                 </OptionButton>
-              </div>
-            </ControlSection>
-
-            <ControlSection title={t('brush')}>
-              <div className="flex flex-col space-y-4">
-                <div className="flex space-x-2">
-                  <OptionButton onClick={() => setIsBrushMode(!isBrushMode)} isActive={isBrushMode}>
-                    {isBrushMode ? t('disableBrush') : t('enableBrush')}
-                  </OptionButton>
-                  <OptionButton onClick={onClearDots} isActive={false}>
-                    {t('clearAllDots')}
-                  </OptionButton>
-                </div>
-                {isBrushMode && (
-                  <div className="flex items-center space-x-3 pt-2">
-                    <label htmlFor="brush-color-picker" className="text-sm font-medium text-slate-300">
-                      {t('brushColor')}
-                    </label>
-                    <input
-                      id="brush-color-picker"
-                      type="color"
-                      value={brushColor}
-                      onChange={(e) => setBrushColor(e.target.value)}
-                      className="w-10 h-10 p-1 bg-slate-700 border border-slate-600 rounded-md cursor-pointer"
-                      title={t('brushColor')}
-                    />
-                  </div>
-                )}
               </div>
             </ControlSection>
 
@@ -780,27 +742,27 @@ export const Controls: React.FC<ControlsProps> = (props) => {
                 </div>
             </ControlSection>
 
-            <ControlSection title={t('phaseOscillation')}>
+            <ControlSection title={t('breathingModel')}>
               <div className="space-y-6">
                 <div className="space-y-4">
                   <p className="text-xs font-semibold text-slate-300">{t('innerDiscRotation')}</p>
                   <div>
-                    <label className="text-xs text-slate-400">{t('oscillationRange')} ({disc1PhaseRange}°)</label>
+                    <label className="text-xs text-slate-400">{t('breathingDepth')} ({disc1PhaseRange}°)</label>
                     <input type="range" min="0" max="360" step="1" value={disc1PhaseRange} onChange={e => setDisc1PhaseRange(Number(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer mt-1" />
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400">{t('oscillationSpeed')} ({disc1PhaseSpeed.toFixed(1)} Hz)</label>
+                    <label className="text-xs text-slate-400">{t('breathingSpeed')} ({disc1PhaseSpeed.toFixed(1)} Hz)</label>
                     <input type="range" min="0" max="60" step="0.1" value={disc1PhaseSpeed} onChange={e => setDisc1PhaseSpeed(Number(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer mt-1" />
                   </div>
                 </div>
                 <div className="space-y-4">
                   <p className="text-xs font-semibold text-slate-300">{t('outerDiscRotation')}</p>
                   <div>
-                    <label className="text-xs text-slate-400">{t('oscillationRange')} ({disc2PhaseRange}°)</label>
+                    <label className="text-xs text-slate-400">{t('breathingDepth')} ({disc2PhaseRange}°)</label>
                     <input type="range" min="0" max="360" step="1" value={disc2PhaseRange} onChange={e => setDisc2PhaseRange(Number(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer mt-1" />
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400">{t('oscillationSpeed')} ({disc2PhaseSpeed.toFixed(1)} Hz)</label>
+                    <label className="text-xs text-slate-400">{t('breathingSpeed')} ({disc2PhaseSpeed.toFixed(1)} Hz)</label>
                     <input type="range" min="0" max="60" step="0.1" value={disc2PhaseSpeed} onChange={e => setDisc2PhaseSpeed(Number(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer mt-1" />
                   </div>
                 </div>

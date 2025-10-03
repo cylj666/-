@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { ColorWheelSVG } from './ColorWheelSVG';
-import type { Dot, Waveform } from '../types';
+import type { Dot, Waveform, InteractionMode } from '../../../types';
 
 export interface ColorWheelProps {
   segments: number;
@@ -28,24 +28,27 @@ export interface ColorWheelProps {
   disc2Coverage: number;
   globalRotationSpeed: number;
   globalRotationDirection: 'clockwise' | 'counter-clockwise';
-  masterRotationSpeed: number;
-  masterRotationDirection: 'clockwise' | 'counter-clockwise';
   dots: Dot[];
-  isBrushMode: boolean;
+  interactionMode: InteractionMode;
   onAddDot: (dot: Omit<Dot, 'id'>) => void;
+  animationAngles: { global: number; disc1: number; disc2: number; };
   zoom: number;
   setZoom: (z: number) => void;
   brushColor: string;
   panOffset: { x: number; y: number; };
   setPanOffset: React.Dispatch<React.SetStateAction<{ x: number; y: number; }>>;
+  scannerAngle: number;
+  setScannerAngle: (a: number) => void;
 }
 
 export const ColorWheel: React.FC<ColorWheelProps> = (props) => {
-  const { zoom, setZoom, panOffset, setPanOffset, isBrushMode, ...rest } = props;
+  const { zoom, setZoom, panOffset, setPanOffset, interactionMode, setScannerAngle, ...rest } = props;
   const [isPanning, setIsPanning] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const initialPinchDistanceRef = useRef<number | null>(null);
   const initialZoomRef = useRef<number>(zoom);
+  const svgWrapperRef = useRef<HTMLDivElement>(null);
 
   const getDistance = (touches: React.TouchList) => {
     const [touch1, touch2] = [touches[0], touches[1]];
@@ -55,8 +58,31 @@ export const ColorWheel: React.FC<ColorWheelProps> = (props) => {
     );
   };
 
+  const handleScan = useCallback((clientX: number, clientY: number) => {
+    const wrapper = svgWrapperRef.current;
+    if (!wrapper) return;
+    
+    const rect = wrapper.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    const dx = clientX - centerX;
+    const dy = clientY - centerY;
+
+    const angleRad = Math.atan2(dy, dx);
+    const angleDeg = (angleRad * 180 / Math.PI + 360) % 360; // Convert to degrees 0-360
+    setScannerAngle(angleDeg);
+
+  }, [setScannerAngle]);
+
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (isBrushMode) return;
+    if (interactionMode === 'scan') {
+      setIsScanning(true);
+      handleScan(e.touches[0].clientX, e.touches[0].clientY);
+      return;
+    }
+    if (interactionMode !== 'pan') return;
+
     if (e.touches.length === 1) {
       setIsPanning(true);
       setDragStart({
@@ -71,7 +97,12 @@ export const ColorWheel: React.FC<ColorWheelProps> = (props) => {
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (isBrushMode) return;
+    if (interactionMode === 'scan' && isScanning) {
+       handleScan(e.touches[0].clientX, e.touches[0].clientY);
+       return;
+    }
+    if (interactionMode !== 'pan') return;
+
     if (e.touches.length === 1 && isPanning) {
       setPanOffset({
         x: e.touches[0].clientX - dragStart.x,
@@ -87,14 +118,19 @@ export const ColorWheel: React.FC<ColorWheelProps> = (props) => {
   };
 
   const handleTouchEnd = () => {
-    if (isBrushMode) return;
+    setIsScanning(false);
+    if (interactionMode !== 'pan') return;
     setIsPanning(false);
     initialPinchDistanceRef.current = null;
   };
 
-
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isBrushMode || e.button !== 0) return;
+    if (interactionMode === 'scan') {
+      setIsScanning(true);
+      handleScan(e.clientX, e.clientY);
+      return;
+    }
+    if (interactionMode !== 'pan' || e.button !== 0) return;
     e.preventDefault();
     setIsPanning(true);
     setDragStart({
@@ -104,7 +140,11 @@ export const ColorWheel: React.FC<ColorWheelProps> = (props) => {
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isPanning) return;
+     if (interactionMode === 'scan' && isScanning) {
+      handleScan(e.clientX, e.clientY);
+      return;
+    }
+    if (interactionMode !== 'pan' || !isPanning) return;
     e.preventDefault();
     setPanOffset({
       x: e.clientX - dragStart.x,
@@ -113,6 +153,7 @@ export const ColorWheel: React.FC<ColorWheelProps> = (props) => {
   };
 
   const handleMouseUpOrLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsScanning(false);
     if (isPanning) {
       e.preventDefault();
       setIsPanning(false);
@@ -120,7 +161,8 @@ export const ColorWheel: React.FC<ColorWheelProps> = (props) => {
   };
   
   const getCursor = () => {
-    if (isBrushMode) return undefined; // Let SVG handle its own cursor
+    if (interactionMode === 'scan') return 'pointer';
+    if (interactionMode === 'brush') return undefined; // Let SVG handle its own cursor
     if (isPanning) return 'grabbing';
     return 'grab';
   };
@@ -139,6 +181,7 @@ export const ColorWheel: React.FC<ColorWheelProps> = (props) => {
     >
       <div className="grid place-items-center w-full h-full p-4">
         <div 
+          ref={svgWrapperRef}
           className="w-full max-w-[600px] aspect-square"
           style={{
             transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
@@ -146,7 +189,7 @@ export const ColorWheel: React.FC<ColorWheelProps> = (props) => {
             transition: isPanning ? 'none' : 'transform 0.15s ease-in-out',
           }}
         >
-          <ColorWheelSVG {...rest} isBrushMode={isBrushMode} />
+          <ColorWheelSVG {...rest} interactionMode={interactionMode} />
         </div>
       </div>
     </div>
